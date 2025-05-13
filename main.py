@@ -42,3 +42,33 @@ async def generate_narrative(prompt: str = Form(...), image: UploadFile = File(N
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/grammar-check")
+async def grammar_check(request: Request):
+    try:
+        data = await request.json()
+        original_text = data.get("text", "")
+
+        # Claude prompt
+        system_prompt = "You are a professional editor. Improve the following text for grammar, clarity, and tone. Keep the meaning the same. Respond with the corrected version only."
+        prompt_text = f"\n\nHuman: {system_prompt}\n\nText:\n{original_text}\n\nAssistant:"
+
+        payload = json.dumps({
+            "prompt": prompt_text,
+            "max_tokens_to_sample": 1024,
+            "temperature": 0.3
+        })
+
+        response = bedrock.invoke_model(
+            modelId=MODEL_ID,
+            body=payload,
+            contentType="application/json",
+            accept="application/json"
+        )
+
+        result = json.loads(response["body"].read())
+        return {"result": result.get("completion", "No response from Claude.")}
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
