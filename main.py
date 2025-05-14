@@ -50,28 +50,28 @@ async def grammar_check(request: Request):
         data = await request.json()
         original_text = data.get("text", "")
 
-        system_prompt = (
-            "You are a helpful assistant. Improve the following text for grammar, punctuation, and clarity "
-            "without changing its meaning or tone. Only return the corrected version. Do not explain your changes."
-        )
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "text": (
+                            "Please review the following text and improve its grammar, punctuation, and clarity "
+                            "without changing its tone or meaning. Only return the corrected version, without explanation.\n\n"
+                            f"{original_text}"
+                        )
+                    }
+                ]
+            }
+        ]
 
-        prompt_text = f"\n\nHuman: {system_prompt}\n\nText:\n{original_text}\n\nAssistant:"
-
-        payload = json.dumps({
-            "prompt": prompt_text,
-            "max_tokens_to_sample": 1024,
-            "temperature": 0.3
-        })
-
-        response = bedrock.invoke_model(
+        response = bedrock.converse(
             modelId=MODEL_ID,
-            body=payload,
-            contentType="application/json",
-            accept="application/json"
+            messages=messages,
         )
 
-        result = json.loads(response["body"].read())
-        return {"corrected": result.get("completion", "").strip()}
+        output_text = response["output"]["message"]["content"][0]["text"]
+        return {"corrected": output_text.strip()}
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
