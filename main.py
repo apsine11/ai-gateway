@@ -50,8 +50,11 @@ async def grammar_check(request: Request):
         data = await request.json()
         original_text = data.get("text", "")
 
-        # Claude prompt
-        system_prompt = "You are a professional editor. Improve the following text for grammar, clarity, and tone. Keep the meaning the same. Respond with the corrected version only."
+        system_prompt = (
+            "You are a helpful assistant. Improve the following text for grammar, punctuation, and clarity "
+            "without changing its meaning or tone. Only return the corrected version. Do not explain your changes."
+        )
+
         prompt_text = f"\n\nHuman: {system_prompt}\n\nText:\n{original_text}\n\nAssistant:"
 
         payload = json.dumps({
@@ -68,7 +71,7 @@ async def grammar_check(request: Request):
         )
 
         result = json.loads(response["body"].read())
-        return {"result": result.get("completion", "No response from Claude.")}
+        return {"corrected": result.get("completion", "").strip()}
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
