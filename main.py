@@ -44,6 +44,41 @@ async def generate_narrative(prompt: str = Form(...), image: UploadFile = File(N
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+s3 = boto3.client("s3", region_name="us-east-1")
+BUCKET_NAME = "area-of-origin-images"
+
+
+@app.post("/generate-upload-url")
+async def generate_upload_url(request: Request):
+    try:
+        data = await request.json()
+        content_type = data.get("content_type", "image/jpeg")  # or "image/png"
+
+        # Generate a unique filename
+        file_ext = "jpg" if "jpeg" in content_type else "png"
+        file_key = f"uploads/{uuid.uuid4()}.{file_ext}"
+
+        # Create the presigned URL
+        presigned_url = s3.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": BUCKET_NAME,
+                "Key": file_key,
+                "ContentType": content_type
+            },
+            ExpiresIn=900,  # URL expires in 15 minutes
+        )
+
+        # Return the upload URL and where the file will be stored
+        return {
+            "upload_url": presigned_url,
+            "file_url": f"https://{BUCKET_NAME}.s3.amazonaws.com/{file_key}"
+        }
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.post("/grammar-check")
 async def grammar_check(request: Request):
     try:
