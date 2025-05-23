@@ -76,9 +76,21 @@ async def generate_upload_url(request: Request):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/get-image-url")
+def get_image_url(key: str):
+    try:
+        url = s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": BUCKET_NAME,
+                "Key": key
+            },
+            ExpiresIn=900
+        )
+        return {"presigned_url": url}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 import requests
 import base64
 
