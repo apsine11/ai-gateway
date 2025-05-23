@@ -97,47 +97,52 @@ import base64
 @app.post("/generate-summary")
 async def generate_summary(request: Request):
     try:
-        data = await request.json()
-        image_keys = data.get("image_keys", [])  # Expecting S3 object keys, like "uploads/abc.jpg"
-        user_prompt = data.get("prompt", "Analyze these fire scene images and describe the area of origin.")
+        body = await request.json()
+        image_keys = body.get("image_keys", [])
+        user_prompt = body.get("prompt", "")
 
         if not image_keys:
             return JSONResponse(status_code=400, content={"error": "No image keys provided."})
 
-        content = []
-
-        # S3 setup
-        s3 = boto3.client("s3", region_name="us-east-2")
-        bucket_name = "area-of-origin-images"
+        image_contents = []
 
         for key in image_keys:
-            response = s3.get_object(Bucket=bucket_name, Key=key)
-            image_bytes = response["Body"].read()
+            # Fetch image bytes from S3
+            obj = s3.get_object(Bucket=BUCKET_NAME, Key=key)
+            image_bytes = obj["Body"].read()
 
-            if not image_bytes:
-                raise Exception(f"Empty image content for key: {key}")
+            # Encode image in base64
+            encoded_image = base64.b64encode(image_bytes).decode("utf-8")
 
-            image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-
-            content.append({
+            image_contents.append({
                 "image": {
-                    "format": "jpeg",  # Or detect dynamically if needed
+                    "format": "jpeg",  # or dynamically parse if needed
                     "source": {
-                        "bytes": image_b64
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": encoded_image
                     }
                 }
             })
 
-        content.append({"text": user_prompt})
-        messages = [{"role": "user", "content": content}]
+        # Add the user prompt
+        image_contents.append({"text": user_prompt})
+
+        # Construct the Claude messages
+        messages = [
+            {
+                "role": "user",
+                "content": image_contents
+            }
+        ]
 
         response = bedrock.converse(
             modelId=MODEL_ID,
-            messages=messages
+            messages=messages,
         )
 
-        output_text = response["output"]["message"]["content"][0]["text"]
-        return {"result": output_text.strip()}
+        output = response["output"]["message"]["content"][0]["text"]
+        return {"summary": output}
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
