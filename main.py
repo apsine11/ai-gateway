@@ -77,6 +77,55 @@ async def generate_upload_url(request: Request):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+import requests
+import base64
+
+@app.post("/generate-summary")
+async def generate_summary(request: Request):
+    try:
+        data = await request.json()
+        image_urls = data.get("image_urls", [])
+        user_prompt = data.get("prompt", "Analyze these fire scene images and describe the area of origin.")
+
+        if not image_urls:
+            return JSONResponse(status_code=400, content={"error": "No image URLs provided."})
+
+        content = []
+
+        for url in image_urls:
+            response = requests.get(url)
+            if response.status_code != 200:
+                return JSONResponse(status_code=400, content={"error": f"Failed to fetch image: {url}"})
+
+            image_bytes = response.content
+            content.append({
+                "image": {
+                    "format": "jpeg",  # or "png", based on your use case
+                    "source": {
+                        "bytes": base64.b64encode(image_bytes).decode("utf-8")
+                    }
+                }
+            })
+
+        # Add prompt as user input
+        content.append({"text": user_prompt})
+        messages = [{"role": "user", "content": content}]
+
+        # Call Claude
+        response = bedrock.converse(
+            modelId=MODEL_ID,
+            messages=messages
+        )
+
+        output_text = response["output"]["message"]["content"][0]["text"]
+        return {"result": output_text.strip()}
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.post("/grammar-check")
 async def grammar_check(request: Request):
     try:
