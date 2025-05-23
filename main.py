@@ -98,30 +98,30 @@ import base64
 async def generate_summary(request: Request):
     try:
         data = await request.json()
-        image_urls = data.get("image_urls", [])
+        image_keys = data.get("image_keys", [])  # Expecting S3 object keys, like "uploads/abc.jpg"
         user_prompt = data.get("prompt", "Analyze these fire scene images and describe the area of origin.")
 
-        if not image_urls:
-            return JSONResponse(status_code=400, content={"error": "No image URLs provided."})
+        if not image_keys:
+            return JSONResponse(status_code=400, content={"error": "No image keys provided."})
 
         content = []
 
-        for url in image_urls:
-            response = requests.get(url)
+        # S3 setup
+        s3 = boto3.client("s3", region_name="us-east-2")
+        bucket_name = "area-of-origin-images"
 
-            if response.status_code != 200:
-                return JSONResponse(
-                    status_code=400,
-                    content={"error": f"Failed to fetch image: {url} (Status: {response.status_code})"}
-                )
+        for key in image_keys:
+            response = s3.get_object(Bucket=bucket_name, Key=key)
+            image_bytes = response["Body"].read()
 
-            image_bytes = response.content
+            if not image_bytes:
+                raise Exception(f"Empty image content for key: {key}")
+
             image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-            # Assume JPEG for now (you can improve this later with content-type detection)
             content.append({
                 "image": {
-                    "format": "jpeg",
+                    "format": "jpeg",  # Or detect dynamically if needed
                     "source": {
                         "bytes": image_b64
                     }
@@ -141,6 +141,7 @@ async def generate_summary(request: Request):
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
 
 @app.post("/grammar-check")
 async def grammar_check(request: Request):
