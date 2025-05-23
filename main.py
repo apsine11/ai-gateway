@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 import boto3
+from botocore.config import Config
 import json
 import uuid
 import os
@@ -12,6 +13,9 @@ app = FastAPI()
 MODEL_ID = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
 
 bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
+
+sigv4_config = Config(signature_version='s3v4')
+
 
 @app.post("/generate-narrative")
 async def generate_narrative(prompt: str = Form(...), image: UploadFile = File(None)):
