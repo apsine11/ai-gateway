@@ -116,11 +116,9 @@ async def generate_summary(request: Request):
 
             image_contents.append({
                 "image": {
-                    "format": "jpeg",  # or dynamically parse if needed
+                    "format": "jpeg",
                     "source": {
-                        "type": "base64",
-                        "media_type": "image/jpeg",
-                        "data": encoded_image
+                        "bytes": encoded_image
                     }
                 }
             })
