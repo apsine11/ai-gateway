@@ -54,26 +54,24 @@ BUCKET_NAME = "area-of-origin-images"
 async def generate_upload_url(request: Request):
     try:
         data = await request.json()
-        content_type = data.get("content_type", "image/jpeg")  # or "image/png"
+        content_type = data.get("content_type", "image/jpeg")
 
-        # Generate a unique filename
+        # Generate a file key
         file_ext = "jpg" if "jpeg" in content_type else "png"
         file_key = f"uploads/{uuid.uuid4()}.{file_ext}"
 
-        # Create the presigned URL
-        presigned_url = s3.generate_presigned_url(
-            "put_object",
-            Params={
-                "Bucket": BUCKET_NAME,
-                "Key": file_key,
-                "ContentType": content_type
-            },
-            ExpiresIn=900,  # URL expires in 15 minutes
+        # Generate presigned POST URL + form fields
+        post = s3.generate_presigned_post(
+            Bucket=BUCKET_NAME,
+            Key=file_key,
+            Fields={"Content-Type": content_type},
+            Conditions=[{"Content-Type": content_type}],
+            ExpiresIn=900
         )
 
-        # Return the upload URL and where the file will be stored
         return {
-            "upload_url": presigned_url,
+            "upload_url": post["url"],     # Always "https://<bucket>.s3.amazonaws.com/"
+            "fields": post["fields"],      # Must be used in the POST body
             "file_url": f"https://{BUCKET_NAME}.s3.amazonaws.com/{file_key}"
         }
 
