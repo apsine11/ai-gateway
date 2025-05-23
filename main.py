@@ -108,24 +108,29 @@ async def generate_summary(request: Request):
 
         for url in image_urls:
             response = requests.get(url)
+
             if response.status_code != 200:
-                return JSONResponse(status_code=400, content={"error": f"Failed to fetch image: {url}"})
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": f"Failed to fetch image: {url} (Status: {response.status_code})"}
+                )
 
             image_bytes = response.content
+            image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+            # Assume JPEG for now (you can improve this later with content-type detection)
             content.append({
                 "image": {
-                    "format": "jpeg",  # or "png", based on your use case
+                    "format": "jpeg",
                     "source": {
-                        "bytes": base64.b64encode(image_bytes).decode("utf-8")
+                        "bytes": image_b64
                     }
                 }
             })
 
-        # Add prompt as user input
         content.append({"text": user_prompt})
         messages = [{"role": "user", "content": content}]
 
-        # Call Claude
         response = bedrock.converse(
             modelId=MODEL_ID,
             messages=messages
@@ -136,7 +141,6 @@ async def generate_summary(request: Request):
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-
 
 @app.post("/grammar-check")
 async def grammar_check(request: Request):
